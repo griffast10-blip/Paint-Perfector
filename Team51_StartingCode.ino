@@ -18,7 +18,7 @@ LiquidCrystal lcd(13, 12, 11, 10 ,9 ,8);
 
 DFRobot_TCS34725 tcs = DFRobot_TCS34725(&Wire, TCS34725_ADDRESS,TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
-int C, M, Y, K, R, G, B;
+int C, M, Y, K, R, G, B, R8, B8, G8;
 char hex[6];
 void setup() {
 // Creates variables for storing color
@@ -100,17 +100,45 @@ Serial.print("\tB:\t"); Serial.print(blue);
 Serial.println("\t");
 }
 
-void rgbTo255(int &clear,int &red,int &green,int &blue) {
-  uint32_t sum = clear;
-  float R, G, B;
-  R = red; R /= sum;
-  G = green; G /= sum;
-  B = blue; B /= sum;
-  R *= 256; G *= 256; B *= 256;
-  Serial.print("\t");
-  Serial.print((int)R, HEX); Serial.print((int)G, HEX); Serial.print((int)B, HEX);
-  Serial.println();
+// Convert raw TCS34725 readings into 0–255 RGB
+void rgbTo255(uint16_t r, uint16_t g, uint16_t b, uint16_t c,
+                  uint8_t &R8, uint8_t &G8, uint8_t &B8) {
+  // Avoid divide-by-zero
+  if (c == 0) {
+    R8 = G8 = B8 = 0;
+    return;
+  }
+
+  // Normalize each channel by the clear value
+  float rn = (float)r / (float)c;
+  float gn = (float)g / (float)c;
+  float bn = (float)b / (float)c;
+
+  // Scale to 0–255
+  rn *= 255.0f;
+  gn *= 255.0f;
+  bn *= 255.0f;
+
+  // Clamp to valid range
+  R8 = (uint8_t)constrain(rn, 0, 255);
+  G8 = (uint8_t)constrain(gn, 0, 255);
+  B8 = (uint8_t)constrain(bn, 0, 255);
+
+  // example use: 
+  /*
+uint16_t r, g, b, c;
+uint8_t R8, G8, B8;
+
+tcs.getRGBC(&r, &g, &b, &c);
+
+convertTo255(r, g, b, c, R8, G8, B8);
+
+Serial.print("RGB(255): ");
+Serial.print(R8); Serial.print(", ");
+Serial.print(G8); Serial.print(", ");
+Serial.print(B8); Serial.println();
 }
+*/
 
 void rgbToCMYK() {
 K = 1 - max(max(R, G), max(G, B));
