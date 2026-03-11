@@ -101,7 +101,7 @@ Serial.println("\t");
 }
 
 // Convert raw TCS34725 readings into 0–255 RGB
-void rgbTo255(uint16_t r, uint16_t g, uint16_t b, uint16_t c,
+void rgbTo255(uint16_t R, uint16_t G, uint16_t B, uint16_t C,
                   uint8_t &R8, uint8_t &G8, uint8_t &B8) {
   // Avoid divide-by-zero
   if (c == 0) {
@@ -110,19 +110,19 @@ void rgbTo255(uint16_t r, uint16_t g, uint16_t b, uint16_t c,
   }
 
   // Normalize each channel by the clear value
-  float rn = (float)r / (float)c;
-  float gn = (float)g / (float)c;
-  float bn = (float)b / (float)c;
+  float Rn = (float)R / (float)C;
+  float Gn = (float)G / (float)C;
+  float Bn = (float)B / (float)C;
 
   // Scale to 0–255
-  rn *= 255.0f;
-  gn *= 255.0f;
-  bn *= 255.0f;
+  Rn *= 255.0f;
+  Gn *= 255.0f;
+  Bn *= 255.0f;
 
   // Clamp to valid range
-  R8 = (uint8_t)constrain(rn, 0, 255);
-  G8 = (uint8_t)constrain(gn, 0, 255);
-  B8 = (uint8_t)constrain(bn, 0, 255);
+  R8 = (uint8_t)constrain(Rn, 0, 255);
+  G8 = (uint8_t)constrain(Gn, 0, 255);
+  B8 = (uint8_t)constrain(Bn, 0, 255);
 
   // example use: 
   /*
