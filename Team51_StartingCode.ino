@@ -18,7 +18,9 @@ LiquidCrystal lcd(13, 12, 11, 10 ,9 ,8);
 
 DFRobot_TCS34725 tcs = DFRobot_TCS34725(&Wire, TCS34725_ADDRESS,TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
-int C, M, Y, K, R, G, B, R8, B8, G8;
+uint16_t R, G, B, C;
+uint8_t R8, G8, B8;
+int C, M, Y, K;
 char hex[6];
 void setup() {
 // Creates variables for storing color
@@ -104,7 +106,7 @@ Serial.println("\t");
 void rgbTo255(uint16_t R, uint16_t G, uint16_t B, uint16_t C,
                   uint8_t &R8, uint8_t &G8, uint8_t &B8) {
   // Avoid divide-by-zero
-  if (c == 0) {
+  if (C == 0) {
     R8 = G8 = B8 = 0;
     return;
   }
