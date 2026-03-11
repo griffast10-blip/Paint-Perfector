@@ -18,7 +18,7 @@ LiquidCrystal lcd(13, 12, 11, 10 ,9 ,8);
 
 DFRobot_TCS34725 tcs = DFRobot_TCS34725(&Wire, TCS34725_ADDRESS,TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
-uint16_t R, G, B, C;
+uint16_t R, G, B, Clear;
 uint8_t R8, G8, B8;
 int C, M, Y, K;
 char hex[6];
