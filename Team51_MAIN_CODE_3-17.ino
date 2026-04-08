@@ -27,7 +27,7 @@ int currScreen = 0;
 
 char currHex[] = "ffffff";
 
-LiquidCrystal lcd (13, 12, 11, 10 ,9 ,8);
+LiquidCrystal lcd (13, 12, 11, 10, 9, 8);
 
 // color sensor subsystem
 const int colorSensorPin0 = A4;
@@ -53,7 +53,7 @@ void setup() {
   } 
   else {
     Serial.println("No TCS34725 found ... check your connections");
-    while (1); // halt!
+    // !!(temporary override for testing)!! while (1); // halt!
   }
 
   pinMode(button0Pin, INPUT_PULLUP);
@@ -110,6 +110,8 @@ void loop() {
       	// there will be a getCurrHex() function running here
       	// it will constantly update currHex and refresh the screen
         // pressing the SEL button will lock in the hex code currently on screen and stop the scanner
+
+        colorSensor();
       	
       	lcd.setCursor(0,1);
       	lcd.print("SEL BACK");
@@ -288,7 +290,7 @@ void enterCurrHex()
 
 
 // COLOR SENSOR SUBSYSTEM_____________________________________________________________________________________________________________________________
-void ColorSensor() {
+void colorSensor() {
   uint16_t clear, red, green, blue;
   tcs.getRGBC(&red, &green, &blue, &clear);
   tcs.lock();  // turn off LED
