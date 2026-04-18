@@ -1,6 +1,8 @@
 #include <Wire.h>
 #include "DFRobot_TCS34725.h"
 #include "LiquidCrystal.h"
+#include <string.h>
+#include <math.h>
 //#include
 
 // syringes subsystem
@@ -25,36 +27,40 @@ int button3 = 0;
 
 int currScreen = 0;
 
-char currHex[] = "ffffff";
+char currHex[8] = {0};
 
-LiquidCrystal lcd (13, 12, 11, 10 ,9 ,8);
+LiquidCrystal lcd (13, 12, 11, 10, 9, 8);
 
 // color sensor subsystem
 const int colorSensorPin0 = A4;
 const int colorSensorPin1 = A5;
 
-DFRobot_TCS34725 tcs = DFRobot_TCS34725(&Wire, TCS34725_ADDRESS,TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+DFRobot_TCS34725 tcs = DFRobot_TCS34725(&Wire, TCS34725_ADDRESS,TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X);
 
-uint16_t R, G, B, Clear;
-uint8_t R8, G8, B8;
+uint16_t colorTemp, lux;
 int C, M, Y, K;
-// Changes pins later
+uint16_t red, green, blue, clear;
 
-
+float rFact = 1450;    //1.9
+float gFact = 950;  //1.001
+float bFact = 650;    //0.7
 
 
 //_____________________________________________________________________________________________________________________________
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Color View Test!");
+  Serial.begin(9600);
+  Serial.println("Begin Setup...");
 
-  if (tcs.begin()) {
-    Serial.println("Found sensor");
-  } 
-  else {
-    Serial.println("No TCS34725 found ... check your connections");
-    while (1); // halt!
+  if (!tcs.begin())
+  {
+    Serial.println("Sensor not found ... check your connections");
+    while(!tcs.begin())
+    {
+      tcs.begin();
+    }
   }
+
+  Serial.println("Sensor Found");
 
   pinMode(button0Pin, INPUT_PULLUP);
   pinMode(button1Pin, INPUT_PULLUP);
@@ -84,10 +90,12 @@ void loop() {
   switch(currScreen) {
       case 0:
         // HOME SCREEN
-      	Serial.print("Home screen code start ");
-      	Serial.println(currScreen);
+      	//Serial.print("Home screen code start ");
+      	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
+        lcd.print("#");
+        lcd.setCursor(1,0);
       	lcd.print(currHex);
       	
       	lcd.setCursor(12,0);
@@ -101,15 +109,19 @@ void loop() {
 
       case 1:
         // RGB SCANNING SCREEN
-      	Serial.print("Scanning screen code start ");
-      	Serial.println(currScreen);
-      
+      	//Serial.print("Scanning screen code start ");
+      	//Serial.println(currScreen);
+
 		    lcd.setCursor(0,0);
+        lcd.print("#");
+        lcd.setCursor(1,0);
       	lcd.print(currHex);
       	
       	// there will be a getCurrHex() function running here
       	// it will constantly update currHex and refresh the screen
         // pressing the SEL button will lock in the hex code currently on screen and stop the scanner
+
+        
       	
       	lcd.setCursor(0,1);
       	lcd.print("SEL BACK");
@@ -119,8 +131,8 @@ void loop() {
 
       case 2:
         // HEXADECIMAL LOOKUP SCREEN
-      	Serial.print("Hex lookup screen code start ");
-      	Serial.println(currScreen);
+      	//Serial.print("Hex lookup screen code start ");
+      	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
       	lcd.print(currHex);
@@ -136,8 +148,8 @@ void loop() {
 
       case 3:
         // HEXADECIMAL ENTRY SCREEN
-      	Serial.print("Hex entry screen code start ");
-      	Serial.println(currScreen);
+      	//Serial.print("Hex entry screen code start ");
+      	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
       	lcd.print(currHex);
@@ -153,8 +165,8 @@ void loop() {
 
       case 4:
         // MIXING SETUP SCREEN
-      	Serial.print("Mixing setup screen code start ");
-      	Serial.println(currScreen);
+      	//Serial.print("Mixing setup screen code start ");
+      	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
       	lcd.print("X MIN X SEC");
@@ -172,8 +184,8 @@ void loop() {
 
       case 5:
         // MIXING PROCESS SCREEN
-		    Serial.print("Mixing process screen code start ");
-      	Serial.println(currScreen);
+		    //Serial.print("Mixing process screen code start ");
+      	//Serial.println(currScreen);
       
       	lcd.setCursor(0,0);
       	lcd.print("TIMER TICKS..");
@@ -189,8 +201,8 @@ void loop() {
 
       case 6:
         // SETTINGS SCREEN
-      	Serial.print("Settings screen code start ");
-      	Serial.println(currScreen);
+      	//Serial.print("Settings screen code start ");
+      	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
       	lcd.print("SETTINGS");
@@ -231,6 +243,8 @@ int getCurrScreen(int prevScreen)
     }
   	if (prevScreen == 1)
     {
+        button0 = digitalRead(button0Pin);
+      	if (!button0) { while(!digitalRead(button0Pin)); colorSensor(); return 1; }
       	button1 = digitalRead(button1Pin);
       	if (!button1) { while(!digitalRead(button1Pin)); lcd.clear(); return 0; }
     }
@@ -288,61 +302,85 @@ void enterCurrHex()
 
 
 // COLOR SENSOR SUBSYSTEM_____________________________________________________________________________________________________________________________
-void ColorSensor() {
-  uint16_t clear, red, green, blue;
+void colorSensor() {
   tcs.getRGBC(&red, &green, &blue, &clear);
-  tcs.lock();  // turn off LED
+  colorTemp = tcs.calculateColortemperature(red, green, blue);
+  lux = tcs.calculateLux(red, green, blue);
 
   Serial.print("C:\t"); Serial.print(clear);
   Serial.print("\tR:\t"); Serial.print(red);
   Serial.print("\tG:\t"); Serial.print(green);
   Serial.print("\tB:\t"); Serial.print(blue);
+  Serial.print("\tColor Temp:\t"); Serial.print(colorTemp); Serial.print("K");
+  Serial.print("\tLux:\t"); Serial.print(lux);
   Serial.println("\t");
+
+  rgbToHEX(red, green, blue, clear, lux, currHex);
+
 }
 
-// Convert raw TCS34725 readings into 0–255 RGB
-void rgbTo255(uint16_t R, uint16_t G, uint16_t B, uint16_t C, uint8_t &R8, uint8_t &G8, uint8_t &B8) {
-  // Avoid divide-by-zero
-  if (C == 0) {
-    R8 = G8 = B8 = 0;
-    return;
+
+
+
+void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint16_t Lux, char currHex[8]) {
+  uint32_t r, g, b;
+  float brightness;
+  if ((Lux == 65535) || (Lux < 20)) {
+    brightness = 0;
   }
+  else if (Lux > 625) {
+    brightness = 5.2;
+    rFact = 1800;
+    gFact = 925;
+  }
+  else if (Lux > 300) {
+    brightness = log((float)(Lux - 20)) / 1.75;
+  }
+  else {
+    brightness = log((float)(Lux - 25)) / 2.5;
+  }
+  
+  
 
-  // Normalize each channel by the clear value
-  float Rn = (float)R / (float)C;
-  float Gn = (float)G / (float)C;
-  float Bn = (float)B / (float)C;
+  // Convert raw TCS34725 readings into 0–255 RGB
+  if (Clear == 0)  return; 
+  
+  // Normalize each channel by the clear value and lux
+  r = ((uint32_t)Red * 255) / ((uint32_t)Clear * 1.0);
+  g = ((uint32_t)Green * 255) / ((uint32_t)Clear * 1.0);
+  b = ((uint32_t)Blue * 255) / ((uint32_t)Clear * 1.0);
+  
 
-  // Scale to 0–255
-  Rn *= 255.0f;
-  Gn *= 255.0f;
-  Bn *= 255.0f;
+  // map to proper 8-bit RGB range + adjust values to compensate for sensor error
+  r = (uint8_t)constrain((r*rFact*brightness) / 1700, 0, 255);
+  g = (uint8_t)constrain((g*gFact*brightness) / 1700, 0, 255);
+  b = (uint8_t)constrain((b*bFact*brightness) / 1700, 0, 255);
 
-  // Clamp to valid range
-  R8 = (uint8_t)constrain(Rn, 0, 255);
-  G8 = (uint8_t)constrain(Gn, 0, 255);
-  B8 = (uint8_t)constrain(Bn, 0, 255);
+
+  Serial.println();
+  Serial.println("Adjusted + Mapped RGB Normalized");
+  Serial.print("R:\t"); Serial.print(r, 4);
+  Serial.print("\tG:\t"); Serial.print(g, 4);
+  Serial.print("\tB:\t"); Serial.print(b, 4);
+  Serial.println("\t");
+
+
+  // save 8 bit values to a singular hexadecimal variable
+  sprintf(currHex, "%02X%02X%02X", (uint8_t)r, (uint8_t)g, (uint8_t)b);
+
+  Serial.println();
+  Serial.print("currHex: "); Serial.println(currHex);
+  return;
+
 }
-  // example use: 
-  /*
-  uint16_t r, g, b, c;
-  uint8_t R8, G8, B8;
 
-  tcs.getRGBC(&r, &g, &b, &c);
 
-  convertTo255(r, g, b, c, R8, G8, B8);
-
-  Serial.print("RGB(255): ");
-  Serial.print(R8); Serial.print(", ");
-  Serial.print(G8); Serial.print(", ");
-  Serial.print(B8); Serial.println();
-  */
 
 void rgbToCMYK() {
-  K = 1 - max(max(R, G), max(G, B));
-  C = (1-R-K)/(1-K);
-  M = (1-G-K)/(1-K);
-  Y = (1-B-K)/(1-K);
+  K = 1 - max(max(red, green), max(green, blue));
+  C = (1-red-K)/(1-K);
+  M = (1-green-K)/(1-K);
+  Y = (1-blue-K)/(1-K);
 }
 // end color sensor functions
 
@@ -410,3 +448,9 @@ void timer()
 
 }
 // end mixer functions
+
+int freeRam() {
+    extern int __heap_start, *__brkval;
+    int v;
+    return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
+}
