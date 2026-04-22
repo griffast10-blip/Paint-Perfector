@@ -27,7 +27,7 @@ int button3 = 0;
 
 int currScreen = 0;
 
-char currHex[8] = {0};
+char currHex[8] = {000000};
 
 LiquidCrystal lcd (13, 12, 11, 10, 9, 8);
 
@@ -42,9 +42,14 @@ int C, M, Y, K;
 uint16_t red, green, blue, clear;
 
 float rFact = 1450;    //1.9
-float gFact = 950;  //1.001
+float gFact = 910;  //1.001
 float bFact = 650;    //0.7
 
+int luxCount = 0;
+
+char hexAlphabet[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+int hexScrollCount = 0;
+int currHexPos = 0;
 
 //_____________________________________________________________________________________________________________________________
 void setup() {
@@ -70,6 +75,7 @@ void setup() {
   lcd.begin(16,2);
 	lcd.clear();
   lcd.setCursor(0,0);
+  sprintf(currHex, "%02X%02X%02X", 00, 00, 00);
 }
 
 
@@ -117,31 +123,23 @@ void loop() {
         lcd.setCursor(1,0);
       	lcd.print(currHex);
       	
-      	// there will be a getCurrHex() function running here
-      	// it will constantly update currHex and refresh the screen
-        // pressing the SEL button will lock in the hex code currently on screen and stop the scanner
-
-        
-      	
       	lcd.setCursor(0,1);
-      	lcd.print("SEL BACK");
+      	lcd.print("SEL BRI DAR BACK");
       
       	currScreen = getCurrScreen(1);
         break;
 
       case 2:
+        // !!!!!!DEPRECATED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!THIS IS NOT USED ANYMORE!!!!!!!!!
         // HEXADECIMAL LOOKUP SCREEN
       	//Serial.print("Hex lookup screen code start ");
       	//Serial.println(currScreen);
       
-		    lcd.setCursor(0,0);
-      	lcd.print(currHex);
-      	
-      	// there will be a lookupCurrHex() function that will
-      	// handle manual lookup of previous hexadecimal codes
+		    //lcd.setCursor(0,0);
+      	//lcd.print(currHex);
       
-      	lcd.setCursor(0,1);
-      	lcd.print("SCR SEL ENT BACK");
+      	//lcd.setCursor(0,1);
+      	//lcd.print("SCR SEL ENT BACK");
       
       	currScreen = getCurrScreen(2);
         break;
@@ -153,12 +151,17 @@ void loop() {
       
 		    lcd.setCursor(0,0);
       	lcd.print(currHex);
+
+        lcd.setCursor(10,0);
+      	lcd.print("POS:");
+        lcd.setCursor(15, 0);
+        lcd.print(currHexPos + 1);
       	
       	// there will be a enterCurrHex() function that will
       	// handle manual entry of a new hexadecimal code
       	
       	lcd.setCursor(0,1);
-      	lcd.print("SCR NEX SEL BACK");
+      	lcd.print("SCR NEX     BACK");
       
       	currScreen = getCurrScreen(3);
         break;
@@ -235,7 +238,7 @@ int getCurrScreen(int prevScreen)
       	button0 = digitalRead(button0Pin);
       	if (!button0) { while(!digitalRead(button0Pin)); lcd.clear(); return 1; }
       	button1 = digitalRead(button1Pin);
-      	if (!button1) { while(!digitalRead(button1Pin)); lcd.clear(); return 2; }
+      	if (!button1) { while(!digitalRead(button1Pin)); lcd.clear(); return 3; }
       	button2 = digitalRead(button2Pin);
       	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 4; }
       	button3 = digitalRead(button3Pin);
@@ -244,19 +247,28 @@ int getCurrScreen(int prevScreen)
   	if (prevScreen == 1)
     {
         button0 = digitalRead(button0Pin);
-      	if (!button0) { while(!digitalRead(button0Pin)); colorSensor(); return 1; }
+      	if (!button0) { while(!digitalRead(button0Pin)); luxCount = 0; colorSensor(); return 1; }
       	button1 = digitalRead(button1Pin);
-      	if (!button1) { while(!digitalRead(button1Pin)); lcd.clear(); return 0; }
+      	if (!button1) { while(!digitalRead(button1Pin)); incrementLux(1); return 1; }
+        button2 = digitalRead(button2Pin);
+      	if (!button2) { while(!digitalRead(button2Pin)); incrementLux(2); return 1; }
+        button3 = digitalRead(button3Pin);
+      	if (!button3) { while(!digitalRead(button3Pin)); incrementLux(0); lcd.clear(); return 0; }
     }
   	if (prevScreen == 2)
     {
-      	button2 = digitalRead(button2Pin);
-      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 3; }
-      	button3 = digitalRead(button3Pin);
-      	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
+      	//button2 = digitalRead(button2Pin);
+      	//if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 3; }
+      	//button3 = digitalRead(button3Pin);
+      	//if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
+        lcd.clear(); return 0;
     }
   	if (prevScreen == 3)
     {
+        button0 = digitalRead(button0Pin);
+      	if (!button0) { while(!digitalRead(button0Pin)); scrollHex(); return 3; }
+        button1 = digitalRead(button1Pin);
+      	if (!button1) { while(!digitalRead(button1Pin)); nextHexPos(); return 3; }
       	button3 = digitalRead(button3Pin);
       	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
     }
@@ -281,21 +293,47 @@ int getCurrScreen(int prevScreen)
   	return prevScreen;
 }
 
-char getCurrHex(char prevHex) 
-{
 
-  return prevHex;
+void scrollHex()
+{
+  //hexScrollCount = 
+
+  char currLetter = currHex[currHexPos];
+
+  for (int i = 0; i < 16; i++) {
+    if (hexAlphabet[i] == currLetter)
+    {
+      if (i == 15)
+      {
+        currLetter = hexAlphabet[0];
+        currHex[currHexPos] = currLetter;
+        return;
+      }
+      else
+      {
+        currLetter = hexAlphabet[i + 1];
+        currHex[currHexPos] = currLetter;
+        return;
+      }
+    }
+  }
 }
 
-void lookupCurrHex()
-{
 
+void nextHexPos()
+{
+  if (currHexPos == 5)
+  {
+    currHexPos = 0;
+    return;
+  }
+  else
+  {
+    currHexPos += 1;
+    return;
+  }
 }
 
-void enterCurrHex()
-{
-
-}
 // end ui/display functions
 
 
@@ -320,8 +358,6 @@ void colorSensor() {
 }
 
 
-
-
 void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint16_t Lux, char currHex[8]) {
   uint32_t r, g, b;
   float brightness;
@@ -331,13 +367,13 @@ void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint1
   else if (Lux > 625) {
     brightness = 5.2;
     rFact = 1800;
-    gFact = 925;
   }
   else if (Lux > 300) {
     brightness = log((float)(Lux - 20)) / 1.75;
   }
   else {
     brightness = log((float)(Lux - 25)) / 2.5;
+    bFact = 700;
   }
   
   
@@ -374,6 +410,24 @@ void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint1
 
 }
 
+
+void incrementLux(int incType) {
+  if (incType == 0) { luxCount = 0; return; }
+
+  if (incType == 1) {
+    luxCount += 1;
+    Serial.print("Previous Lux: "); Serial.print(lux); Serial.print("\tLux Counter: "); Serial.println(luxCount);
+    rgbToHEX(red, green, blue, clear, lux + luxCount, currHex);
+    return;
+  }
+  else {
+    luxCount -= 1;
+    Serial.print("Current Lux: "); Serial.print(lux); Serial.print("\tLux Counter: "); Serial.println(luxCount);
+    rgbToHEX(red, green, blue, clear, lux + luxCount, currHex);
+    return;
+  }
+
+}
 
 
 void rgbToCMYK() {
@@ -449,8 +503,13 @@ void timer()
 }
 // end mixer functions
 
+
+
+//_____________________________________________________________________________________________________________________________________________
+// for testing: how much free ram do we have?
 int freeRam() {
     extern int __heap_start, *__brkval;
     int v;
     return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
 }
+
