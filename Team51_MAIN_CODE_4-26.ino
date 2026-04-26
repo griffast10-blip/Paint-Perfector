@@ -1,9 +1,30 @@
+// data to be sent, guarantees 32 bytes total
+struct DataStruct {
+    int C;              //  2
+    int M;              //  2
+    int Y;              //  2
+    int K;              //  2
+    byte padding[24];   // 24
+                        //------
+                        // 32
+};
+
+DataStruct StepData = {0};
+
+bool newStepData = false;
+
 #include <Wire.h>
 #include "DFRobot_TCS34725.h"
 #include "LiquidCrystal.h"
 #include <string.h>
 #include <math.h>
-//#include
+
+const byte thisAddress = 8; // these need to be swapped for the other Arduino
+const byte otherAddress = 9;
+
+// timing variables
+unsigned long prevUpdateTime = 0;
+unsigned long updateInterval = 500;
 
 // syringes subsystem
 const int syringeMotorCyanPin = 2;
@@ -51,6 +72,8 @@ char hexAlphabet[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B'
 int hexScrollCount = 0;
 int currHexPos = 0;
 
+uint32_t r, g, b;
+
 //_____________________________________________________________________________________________________________________________
 void setup() {
   Serial.begin(9600);
@@ -66,6 +89,12 @@ void setup() {
   }
 
   Serial.println("Sensor Found");
+
+  Serial.println("Starting I2C Master Arduino...");
+
+  // set up I2C
+  Wire.begin(thisAddress); // join i2c bus
+
 
   pinMode(button0Pin, INPUT_PULLUP);
   pinMode(button1Pin, INPUT_PULLUP);
@@ -172,7 +201,7 @@ void loop() {
       	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
-      	lcd.print("X MIN X SEC");
+      	lcd.print(currHex);
       	
       	// there will be a prepMix() function that will
       	// handle manual entry of mixing time
@@ -180,7 +209,7 @@ void loop() {
       	// taken care of by the mixer subsystem
       	
       	lcd.setCursor(0,1);
-      	lcd.print("MIN SEC MIX BACK");
+      	lcd.print("SEND    MIX BACK");
       
       	currScreen = getCurrScreen(4);
         break;
@@ -274,8 +303,10 @@ int getCurrScreen(int prevScreen)
     }
   	if (prevScreen == 4)
     {
+        button0 = digitalRead(button0Pin);
+      	if (!button0) { while(!digitalRead(button0Pin)); updateDataToSend(); transmitData(); return 3; }
       	button2 = digitalRead(button2Pin);
-      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 5; }
+      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 4; }
       	button3 = digitalRead(button3Pin);
       	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
     }
@@ -359,7 +390,6 @@ void colorSensor() {
 
 
 void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint16_t Lux, char currHex[8]) {
-  uint32_t r, g, b;
   float brightness;
   if ((Lux == 65535) || (Lux < 20)) {
     brightness = 0;
@@ -406,6 +436,7 @@ void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint1
 
   Serial.println();
   Serial.print("currHex: "); Serial.println(currHex);
+  rgbToCMYK();
   return;
 
 }
@@ -428,59 +459,63 @@ void incrementLux(int incType) {
   }
 
 }
-
-
-void rgbToCMYK() {
-  K = 1 - max(max(red, green), max(green, blue));
-  C = (1-red-K)/(1-K);
-  M = (1-green-K)/(1-K);
-  Y = (1-blue-K)/(1-K);
-}
 // end color sensor functions
 
 
 
 
 // SYRINGES SUBSYSTEM_____________________________________________________________________________________________________________________________
-void dispense() {
-  // Turns motors on for amount depending on the amount of CMYK in the inteded color mix
-  digitalWrite(syringeMotorCyanPin, HIGH);
-  delay(getTimeC());
-  digitalWrite(syringeMotorCyanPin, LOW);
-
-  digitalWrite(syringeMotorMagentaPin, HIGH);
-  delay(getTimeM());
-  digitalWrite(syringeMotorMagentaPin, LOW);
-
-  digitalWrite(syringeMotorYellowPin, HIGH);
-  delay(getTimeY());
-  digitalWrite(syringeMotorYellowPin, LOW);
-
-  digitalWrite(syringeMotorKeyPin, HIGH);
-  delay(getTimeK());
-  digitalWrite(syringeMotorKeyPin, LOW);
+void rgbToCMYK() {
+  K = 1 - max(max((uint8_t)r, (uint8_t)g), max((uint8_t)g, (uint8_t)b));
+  C = (1 - (uint8_t)r - K)/(1 - K);
+  M = (1 - (uint8_t)g - K)/(1 - K);
+  Y = (1 - (uint8_t)b - K)/(1 - K);
+  Serial.print("K: "); Serial.println(K);
+  Serial.print("C: "); Serial.println(C);
+  Serial.print("M: "); Serial.println(M);
+  Serial.print("Y: "); Serial.println(Y);
 }
 
-int getTimeC() {
-  // Calculate time to enable Cyan motor to dispense an amount of paint based on CMYK
+void transmitData() {
 
+    if (newStepData == true) {
+        Wire.beginTransmission(otherAddress);
+        Wire.write((byte*) &StepData, sizeof(StepData));
+        Wire.endTransmission();    // this is what actually sends the data
+
+            // for demo show the data that as been sent
+        Serial.println("Sent:");
+        Serial.println(StepData.C);
+        Serial.println(StepData.M);
+        Serial.println(StepData.Y);
+        Serial.println(StepData.K);
+
+        newTxData = false;
+    }
 }
-int getTimeM() {
-  // Calculate time to enable Magenta motor to dispense an amount of paint based on CMYK
 
+void updateDataToSend() {
+
+    if (millis() - prevUpdateTime >= updateInterval) {
+        prevUpdateTime = millis();
+        if (newStepData == false) { // ensure previous message has been sent
+            // new data to send goes here
+
+
+            // ________________________________________________________________________________________________________________________________________!!!!!!
+            // CMYK data values go HERE to send to slave Arduino
+            // rgbToCMYK();  type shit
+            StepData.C = C;
+            StepData.M = M;
+            StepData.Y = Y;
+            StepData.K = K;
+
+
+
+            newStepData = true;
+        }
+    }
 }
-int getTimeY() {
-  // Calculate time to enable Yellow motor to dispense an amount of paint based on CMYK
-
-}
-int getTimeK() {
-  // Calculate time to enable Key motor to dispense an amount of paint based on CMYK
-
-}
-// end syringes functions
-
-
-
 
 // MIXER SUBSYSTEM_____________________________________________________________________________________________________________________________
 void prepMix()
@@ -512,4 +547,3 @@ int freeRam() {
     int v;
     return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
 }
-
