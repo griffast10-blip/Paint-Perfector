@@ -1,12 +1,12 @@
 // data to be sent, guarantees 32 bytes total
 struct DataStruct {
-    float C;              //  2
-    float M;              //  2
-    float Y;              //  2
-    float K;              //  2
-    byte padding[16];   // 24 Changes these data types to float and adjusted padding to 16t to account
-                        //------
-                        // 32
+    uint8_t C;              //  8
+    uint8_t M;              //  8
+    uint8_t Y;              //  8
+    uint8_t K;              //  8
+    //byte padding[16];   // 24 Changes these data types to float and adjusted padding to 16t to account
+                            //------
+                            // 32
 };
 
 DataStruct StepData = {0};
@@ -33,7 +33,7 @@ const int syringeMotorYellowPin = 4;
 const int syringeMotorKeyPin = 5;
 
 // mixer subsystem
-const int mixerMotorPin = 6;
+const int mixerMotorPin = 6; 
 
 // ui/display subsystem
 const int button0Pin = A0;
@@ -196,12 +196,12 @@ void loop() {
         break;
 
       case 4:
-        // MIXING SETUP SCREEN
+        // MIXING SCREEN
       	//Serial.print("Mixing setup screen code start ");
       	//Serial.println(currScreen);
       
 		    lcd.setCursor(0,0);
-      	lcd.print(currHex);
+      	lcd.print("MIX: "); lcd.print(currHex);
       	
       	// there will be a prepMix() function that will
       	// handle manual entry of mixing time
@@ -209,7 +209,7 @@ void loop() {
       	// taken care of by the mixer subsystem
       	
       	lcd.setCursor(0,1);
-      	lcd.print("SEND    MIX BACK");
+      	lcd.print("(EXT)       BACK");
       
       	currScreen = getCurrScreen(4);
         break;
@@ -242,7 +242,7 @@ void loop() {
       	// there will be options to change settings on this screen
       	
       	lcd.setCursor(0,1);
-      	lcd.print("XXX XXX XXX BACK");
+      	lcd.print("RES         BACK");
       
       	currScreen = getCurrScreen(6);
         break;
@@ -269,7 +269,7 @@ int getCurrScreen(int prevScreen)
       	button1 = digitalRead(button1Pin);
       	if (!button1) { while(!digitalRead(button1Pin)); lcd.clear(); return 3; }
       	button2 = digitalRead(button2Pin);
-      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 4; }
+      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); updateDataToSend(1); transmitData(); return 4; }
       	button3 = digitalRead(button3Pin);
       	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 6; }
     }
@@ -304,19 +304,20 @@ int getCurrScreen(int prevScreen)
   	if (prevScreen == 4)
     {
         button0 = digitalRead(button0Pin);
-      	if (!button0) { while(!digitalRead(button0Pin)); updateDataToSend(); transmitData(); return 3; }
-      	button2 = digitalRead(button2Pin);
-      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 4; }
+      	if (!button0) { while(!digitalRead(button0Pin)); return 4; }
+      	button1 = digitalRead(button1Pin);
+      	if (!button1) { while(!digitalRead(button1Pin)); return 4; }
       	button3 = digitalRead(button3Pin);
       	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
     }
   	if (prevScreen == 5)
     {
-      	button2 = digitalRead(button2Pin);
-      	if (!button2) { while(!digitalRead(button2Pin)); lcd.clear(); return 0; }
+        lcd.clear(); return 0;
     }
   	if (prevScreen == 6)
     {
+        button0 = digitalRead(button0Pin);
+      	if (!button0) { while(!digitalRead(button0Pin)); updateDataToSend(0); transmitData(); return 6; }
       	button3 = digitalRead(button3Pin);
       	if (!button3) { while(!digitalRead(button3Pin)); lcd.clear(); return 0; }
     }
@@ -436,20 +437,6 @@ void rgbToHEX(uint16_t Red, uint16_t Green, uint16_t Blue, uint16_t Clear, uint1
 
   Serial.println();
   Serial.print("currHex: "); Serial.println(currHex);
-rgbToCMYK();
-            Serial.print("C ====");
-            Serial.print(C);
-            Serial.print("M ====");
-            Serial.print(M);
-            Serial.print("Y ====");
-            Serial.print(Y);
-            Serial.print("K ====");
-            Serial.print(K);
-
-            StepData.C = C;
-            StepData.M = M;
-            StepData.Y = Y;
-            StepData.K = K;
   return;
 
 }
@@ -479,7 +466,7 @@ void incrementLux(int incType) {
 
 // SYRINGES SUBSYSTEM_____________________________________________________________________________________________________________________________
 void rgbToCMYK() {
-float rf = r / 255.0;
+  float rf = r / 255.0;
   float gf = g / 255.0;
   float bf = b / 255.0;
 
@@ -508,35 +495,43 @@ void transmitData() {
         Serial.println(StepData.Y);
         Serial.println(StepData.K);
 
-        //newTxData = false;
+        newStepData = false;
     }
 }
 
-void updateDataToSend() {
+void updateDataToSend(int mode) {
 
     if (millis() - prevUpdateTime >= updateInterval) {
         prevUpdateTime = millis();
-        if (newStepData == false) { // ensure previous message has been sent
+        if (mode == 0)
+        {
+            Serial.println("resetting...");
+            StepData.C = (uint8_t)(0);
+            StepData.M = (uint8_t)(0);
+            StepData.Y = (uint8_t)(0);
+            StepData.K = (uint8_t)(0);
+        }
+        else if (newStepData == false) { // ensure previous message has been sent
             // new data to send goes here
 
 
             // ________________________________________________________________________________________________________________________________________!!!!!!
             // CMYK data values go HERE to send to slave Arduino
-           /* rgbToCMYK();
-            Serial.print("C ====");
-            Serial.print(C);
-            Serial.print("M ====");
-            Serial.print(M);
-            Serial.print("Y ====");
-            Serial.print(Y);
-            Serial.print("K ====");
-            Serial.print(K);
+            rgbToCMYK();
+            Serial.print("C ==== ");
+            Serial.println(C);
+            Serial.print("M ==== ");
+            Serial.println(M);
+            Serial.print("Y ==== ");
+            Serial.println(Y);
+            Serial.print("K ==== ");
+            Serial.println(K);
 
-            StepData.C = C;
-            StepData.M = M;
-            StepData.Y = Y;
-            StepData.K = K;
-            */
+            StepData.C = (uint8_t)(C * 100);
+            StepData.M = (uint8_t)(M * 100);
+            StepData.Y = (uint8_t)(Y * 100);
+            StepData.K = (uint8_t)(K * 100);
+            
 
 
             newStepData = true;
