@@ -29,15 +29,9 @@ exact paint quantities through syringe-based actuators. Future improvements coul
 tion for more complex lighting.
 
 Development Team: J. Crain, N. Gattis, G. Fast, N. Lindsey
-
 Project Coordinator: Oshiv Yuvaraj
-
 Department of Electrical and Computer Engineering
-
 Mississippi State University
-
 413 Hardy Road, Box 9571
-
 Mississippi State, Mississippi 39762
-
 Email: {jgc345, nwg50, glf79, nbl76}@msstate.edu
