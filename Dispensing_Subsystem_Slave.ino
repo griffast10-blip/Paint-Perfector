@@ -12,7 +12,8 @@ const long OPEN_STEPS     = 2048;  // 10 ml
 // ─── I2C ─────────────────────────────────────
 const byte thisAddress = 9;
 
-struct I2cRxStruct {
+struct I2cRxStruct
+{
   uint8_t cPercent;
   uint8_t mPercent;
   uint8_t yPercent;
@@ -35,54 +36,70 @@ Stepper motorM(STEPS_PER_REV, M2_IN1, M2_IN3, M2_IN2, M2_IN4);
 Stepper motorY(STEPS_PER_REV, M3_IN1, M3_IN3, M3_IN2, M3_IN4);
 Stepper motorK(STEPS_PER_REV, M4_IN1, M4_IN3, M4_IN2, M4_IN4);
 
-long percentToSteps(uint8_t pct) {
+// receives percentage data and converts into step data for stepper motors
+long percentToSteps(uint8_t pct)
+{
   if (pct > 100) pct = 100;
   return (long)((MAX_STEPS * pct) / 100.0);
 }
 
-
-
-void receiveEvent(int numBytes) {
-  if (numBytes == sizeof(I2cRxStruct)) {
+// calls function body upon receiving data on the I2C bus
+void receiveEvent(int numBytes)
+{
+  if (numBytes == sizeof(I2cRxStruct))
+  {
+    // updates data struct with incoming CMYK data
     Wire.readBytes((uint8_t*)&rxData, sizeof(I2cRxStruct));
     newRxData = true;
-  } else {
+  } 
+  else
+  {
     while (Wire.available()) Wire.read();
   }
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(9600);
   Serial.println(F("4-Stepper — I2C Slave mode"));
 
+  // set up I2C communication
   Wire.begin(thisAddress);
   Wire.onReceive(receiveEvent);
 
+  // configure stepper motors
   motorC.setSpeed(15);
   motorM.setSpeed(15);
   motorY.setSpeed(15);
   motorK.setSpeed(15);
 
+  // level syringe motors
   homeAllSyringes();
 }
 
-void loop() {
-  if (newRxData) {
+void loop()
+{
+  // begin processing upon receiving CMYK data
+  if (newRxData)
+  {
     noInterrupts();
     newRxData = false;
     interrupts();
 
+    // if reset called, level all syringes
     if (rxData.cPercent == 0 && rxData.mPercent == 0 && rxData.yPercent == 0 && rxData.kPercent == 0) {
       Serial.println(F("Home command received over I2C"));
       homeAllSyringes();
-
     } 
-    else {
+    else
+    {
+      // convert CMYK data to motor steps
       cSteps = percentToSteps(rxData.cPercent);
       mSteps = percentToSteps(rxData.mPercent);
       ySteps = percentToSteps(rxData.yPercent);
       kSteps = percentToSteps(rxData.kPercent);
 
+      // update serial with percentage and step conversion info
       Serial.print("C%: "); Serial.print(rxData.cPercent);
       Serial.print(" -> "); Serial.print(cSteps);
       Serial.print(" | M%: "); Serial.print(rxData.mPercent);
@@ -92,6 +109,7 @@ void loop() {
       Serial.print(" | K%: "); Serial.print(rxData.kPercent);
       Serial.print(" -> "); Serial.println(kSteps);
 
+      // call motors to dispense | MAIN ENGINES START... WE HAVE LIFT-OFF!
       motorC.step(-cSteps);
       motorM.step(-mSteps);
       motorY.step(-ySteps);
@@ -101,7 +119,9 @@ void loop() {
   delay(10);
 }
 
-void homeAllSyringes() {
+// levels every dispensing syringe
+void homeAllSyringes()
+{
   // Step 1: Push all the way down to guarantee a known bottom position
   Serial.println(F("Pushing all syringes to bottom..."));
   motorC.step(-OPEN_STEPS); Serial.println(F("  C down"));
